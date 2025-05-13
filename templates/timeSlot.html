@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Select Availability</title>
+        <style>
+            .slot-container {
+                display: none;
+                margin-top: 10px;
+            }
+            .slot {
+                display: block;
+                margin: 5px 0;
+            }
+        </style>
+    </head>
+    <body>
+        <h2>Select Availability</h2>
+        <form method="POST" action="/submit_availability">
+            <input type="hidden" name="technology_id" value="{{ tech_id }}" />
+
+            <label for="date">Select a Date:</label>
+            <select id="date" name="date">
+                <!-- Populated by JS -->
+            </select>
+
+            <div id="slots" class="slot-container">
+                <p>Select up to 3 time slots:</p>
+                <!-- Slots will be inserted here -->
+            </div>
+
+            <button type="submit">Submit</button>
+        </form>
+
+        <script>
+            // Generate next 5 weekdays (excluding today and weekends)
+            const dateSelect = document.getElementById('date');
+            const slotContainer = document.getElementById('slots');
+
+            const timeSlots = [
+                '10:00 AM - 11:00 AM',
+                '11:00 AM - 12:00 PM',
+                '12:00 PM - 01:00 PM',
+                '01:00 PM - 02:00 PM',
+                '02:00 PM - 03:00 PM',
+                '03:00 PM - 04:00 PM',
+                '04:00 PM - 05:00 PM',
+                '05:00 PM - 06:00 PM',
+            ];
+
+            function getNextWeekdays(count) {
+                const weekdays = [];
+                const today = new Date();
+                let day = new Date(today);
+                day.setDate(day.getDate() + 1); // Start from tomorrow
+
+                while (weekdays.length < count) {
+                    const weekday = day.getDay();
+                    if (weekday !== 0 && weekday !== 6) {
+                        // Skip Sun (0) and Sat (6)
+                        weekdays.push(new Date(day));
+                    }
+                    day.setDate(day.getDate() + 1);
+                }
+                return weekdays;
+            }
+
+            function formatDate(date) {
+                return date.toISOString().split('T')[0];
+            }
+
+            const weekdays = getNextWeekdays(5);
+            weekdays.forEach((date) => {
+                const option = document.createElement('option');
+                option.value = formatDate(date);
+                option.text = date.toDateString();
+                dateSelect.appendChild(option);
+            });
+
+            dateSelect.addEventListener('change', () => {
+                slotContainer.innerHTML = '<p>Select up to 3 time slots:</p>';
+                timeSlots.forEach((slot) => {
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.name = 'time_slots';
+                    checkbox.value = slot;
+                    checkbox.classList.add('slot');
+
+                    const label = document.createElement('label');
+                    label.textContent = slot;
+                    label.prepend(checkbox);
+
+                    slotContainer.appendChild(label);
+                });
+                slotContainer.style.display = 'block';
+
+                // Limit to 3
+                slotContainer.addEventListener('change', () => {
+                    const checked = slotContainer.querySelectorAll("input[type='checkbox']:checked");
+                    if (checked.length > 3) {
+                        alert('You can only select up to 3 slots.');
+                        event.target.checked = false;
+                    }
+                });
+            });
+        </script>
+    </body>
+</html>
