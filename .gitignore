@@ -1,2 +1,6 @@
 .env
 .venv
+credentials.json
+token.json
+authorize.py
+calendar_utils.py
