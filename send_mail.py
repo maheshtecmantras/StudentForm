@@ -3,7 +3,7 @@ import pymysql
 import smtplib
 from dotenv import load_dotenv
 from email.message import EmailMessage
-from calendar_utils import create_event
+# Load environment variables
 load_dotenv()
 
 # Email configuration
@@ -11,16 +11,19 @@ EMAIL_HOST = os.getenv("EMAIL_HOST")
 EMAIL_PORT = int(os.getenv("SMTP_PORT"))
 EMAIL_USER = os.getenv("EMAIL_ADDRESS")
 EMAIL_PASS = os.getenv("EMAIL_PASSWORD")
-FORM_LINK = os.getenv("GOOGLE_FORM_LINK")
 
-# MySQL config (used in connection)
+
+# MySQL config
 DB_HOST = os.getenv('DB_HOST')
 DB_USER = os.getenv('DB_USER')
 DB_PASSWORD = os.getenv('DB_PASSWORD')
 DB_NAME = os.getenv('DB_NAME')
-DB_PORT=os.getenv('DB_PORT')
+DB_PORT = os.getenv('DB_PORT')
 
-# Connect to your PostgreSQL (update credentials)
+# Resume upload directory
+RESUME_DIR = "uploads/"
+
+# Connect to MySQL
 conn = pymysql.connect(
     host=DB_HOST,
     user=DB_USER,
@@ -30,7 +33,7 @@ conn = pymysql.connect(
     cursorclass=pymysql.cursors.DictCursor
 )
 
-with conn:
+def send_mail_to_faculty():
     with conn.cursor() as cursor:
         cursor.execute("""
             SELECT s.id, s.name AS student_name, s.email AS student_email, s.resume as resume_path, 
@@ -46,6 +49,7 @@ with conn:
             msg['Subject'] = f"[Action Required] Interview Slot Selection for {student['student_name']}"
             msg['From'] = EMAIL_USER
             msg['To'] = student['interviewer_email']
+            availability_form_url = f"http://localhost:5000/availability_form?student_id={student['id']}"
 
             msg.set_content(f"""
 Dear {student['interviewer_name']},
@@ -53,7 +57,7 @@ Dear {student['interviewer_name']},
 A new candidate has been added under the technology: {student['tech_name']}.
 
 Please review their resume and provide your availability using this form:
-🔗 {FORM_LINK}
+🔗 {availability_form_url}
 
 Instructions:
 - Select up to 3 time slots per day
@@ -67,9 +71,6 @@ Thank you,
 TecMantras
 """)
 
-            # Attach resume
-            RESUME_DIR = "uploads/"
-
             resume_path = os.path.join(RESUME_DIR, student['resume_path'])
             if resume_path and os.path.exists(resume_path):
                 with open(resume_path, 'rb') as f:
@@ -79,17 +80,76 @@ TecMantras
             else:
                 print(f" Resume not found for {student['student_name']} at {resume_path}")
 
-            # Send email
             try:
                 with smtplib.SMTP(EMAIL_HOST, EMAIL_PORT) as smtp:
                     smtp.starttls()
                     smtp.login(EMAIL_USER, EMAIL_PASS)
                     smtp.send_message(msg)
-                    print(f"✅ Email sent to {student['interviewer_email']}")
+                    print(f"✅ Email sent to faculty: {student['interviewer_email']}")
 
-                # Update status to 2
                 cursor.execute("UPDATE candidates SET status = 2 WHERE id = %s", (student['id'],))
                 conn.commit()
 
             except Exception as e:
                 print(f"❌ Failed to send email to {student['interviewer_email']}: {e}")
+
+def send_mail_to_student():
+    with conn.cursor() as cursor:
+        cursor.execute("""
+            SELECT DISTINCT student_id
+            FROM availability
+        """)
+        student_ids = cursor.fetchall()
+
+        for entry in student_ids:
+            student_id = entry['student_id']
+
+            cursor.execute("""
+                SELECT name, email
+                FROM candidates
+                WHERE id = %s
+            """, (student_id,))
+            student = cursor.fetchone()
+
+            if not student:
+                print(f"❌ Student with ID {student_id} not found.")
+                continue
+
+            msg = EmailMessage()
+            msg['Subject'] = f"Select Your Interview Slot - Action Required"
+            msg['From'] = EMAIL_USER
+            msg['To'] = student['email']
+
+            slot_selection_url = f"http://localhost:5000/get_availability?student_id={student_id}"
+
+            msg.set_content(f"""
+                        Dear {student['name']},
+
+                        Your interviewer has shared their available time slots for the interview.
+
+                        Please select your preferred interview slot using the link below:
+                        🔗 {slot_selection_url}
+
+                        Note:
+                        - Only one slot can be selected.
+                        - Please confirm your slot at the earliest.
+
+                        All the best,
+                        TecMantras
+                        """)
+
+            try:
+                with smtplib.SMTP(EMAIL_HOST, EMAIL_PORT) as smtp:
+                    smtp.starttls()
+                    smtp.login(EMAIL_USER, EMAIL_PASS)
+                    smtp.send_message(msg)
+                    print(f"✅ Slot selection email sent to student: {student['email']}")
+                cursor.execute("UPDATE candidates SET status = 3 WHERE id = %s", (student_id,))
+                conn.commit()
+            except Exception as e:
+                print(f"❌ Failed to send email to student {student['email']}: {e}")
+
+# === Execute functions ===
+with conn:
+    # send_mail_to_faculty()
+    send_mail_to_student()

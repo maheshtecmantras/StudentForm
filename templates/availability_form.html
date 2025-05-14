@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Select Availability</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                background-color: #f4f7fc;
+                margin: 0;
+                padding: 0;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+            }
+            .form-container {
+                background-color: #ffffff;
+                border-radius: 8px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                padding: 20px;
+                width: 100%;
+                max-width: 600px;
+            }
+            h2 {
+                color: #4a90e2;
+                text-align: center;
+            }
+            label {
+                font-weight: bold;
+                margin-top: 10px;
+                color: #333;
+            }
+            select,
+            input[type='date'] {
+                width: 100%;
+                padding: 10px;
+                margin-top: 8px;
+                border-radius: 4px;
+                border: 1px solid #ccc;
+                font-size: 16px;
+                color: #333;
+            }
+            .slot-container {
+                display: none;
+                margin-top: 10px;
+            }
+            .slot-container label {
+                display: block;
+                margin-bottom: 6px;
+            }
+            .slot-container input[type='checkbox'] {
+                margin-right: 10px;
+            }
+            button {
+                background-color: #4a90e2;
+                color: white;
+                border: none;
+                padding: 12px 20px;
+                font-size: 16px;
+                border-radius: 5px;
+                width: 100%;
+                cursor: pointer;
+                margin-top: 20px;
+                transition: background-color 0.3s ease;
+            }
+            button:hover {
+                background-color: #357ab7;
+            }
+            .faculty-select {
+                margin-top: 20px;
+            }
+            .faculty-select select {
+                width: 100%;
+                padding: 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="form-container">
+            <h2>Select Availability</h2>
+            <form method="POST" action="/submit_availability">
+                <!-- Faculty Name -->
+                <div class="faculty-select">
+                    <label for="faculty">Select Faculty:</label>
+                    <select id="faculty" name="faculty_id">
+                        <option value="">-- Select Faculty --</option>
+                        {% for tech in technologies %}
+                        <option value="{{ tech.id }}">{{ tech.faculty_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Date Selection -->
+                <label for="date">Select a Date:</label>
+                <input type="date" id="date" name="date" required />
+
+                <!-- Time Slot Selection -->
+                <div id="slots" class="slot-container">
+                    <p>Select up to 3 time slots:</p>
+                </div>
+                <!-- Add Slot Button -->
+                <button type="button" id="add-slot-btn" style="margin-top: 10px">Add Slot</button>
+
+                <!-- Display Selected Slots -->
+                <div id="added-slots" style="margin-top: 15px">
+                    <h4>Selected Slots:</h4>
+                    <ul id="slot-list"></ul>
+                </div>
+                <button type="submit">Submit</button>
+
+                <!-- Hidden field for student_id -->
+                <input type="hidden" name="student_id" value="{{ student_id }}" />
+            </form>
+        </div>
+
+        <script>
+            const dateInput = document.getElementById('date');
+            const slotContainer = document.getElementById('slots');
+            const addSlotBtn = document.getElementById('add-slot-btn');
+            const slotList = document.getElementById('slot-list');
+            const form = document.querySelector('form');
+
+            const timeSlots = [
+                '10:00 AM - 11:00 AM',
+                '11:00 AM - 12:00 PM',
+                '12:00 PM - 01:00 PM',
+                '01:00 PM - 02:00 PM',
+                '02:00 PM - 03:00 PM',
+                '03:00 PM - 04:00 PM',
+                '04:00 PM - 05:00 PM',
+                '05:00 PM - 06:00 PM',
+                '06:00 PM - 07:00 PM',
+            ];
+
+            const selectedSlotData = {}; // Key: date, Value: array of time slots
+
+            function getNextWeekdays(count) {
+                const weekdays = [];
+                const today = new Date();
+                let day = new Date(today);
+                day.setDate(day.getDate() + 1); // Start from tomorrow
+
+                while (weekdays.length < count) {
+                    const weekday = day.getDay();
+                    if (weekday !== 0 && weekday !== 6) {
+                        weekdays.push(new Date(day));
+                    }
+                    day.setDate(day.getDate() + 1);
+                }
+
+                return weekdays;
+            }
+
+            function formatDate(date) {
+                return date.toISOString().split('T')[0];
+            }
+
+            const validDates = getNextWeekdays(5).map(formatDate);
+
+            // Set min and max attributes for visual cues
+            dateInput.min = validDates[0];
+            dateInput.max = validDates[validDates.length - 1];
+
+            dateInput.addEventListener('change', (e) => {
+                const selected = e.target.value;
+
+                if (!validDates.includes(selected)) {
+                    alert('Please select a valid weekday (Mon–Fri, excluding today).');
+                    e.target.value = '';
+                    slotContainer.style.display = 'none';
+                    addSlotBtn.style.display = 'none';
+                    return;
+                }
+
+                const alreadySelected = selectedSlotData[selected] || [];
+
+                if (alreadySelected.length >= 3) {
+                    alert(`You have already selected 3 time slots for ${selected}. Choose a different date.`);
+                    e.target.value = '';
+                    slotContainer.style.display = 'none';
+                    addSlotBtn.style.display = 'none';
+                    return;
+                }
+
+                // Show time slots
+                slotContainer.innerHTML = '<p>Select time slots (max 3 per day):</p>';
+                timeSlots.forEach((slot) => {
+                    if (!alreadySelected.includes(slot)) {
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.name = 'time_slots';
+                        checkbox.value = slot;
+                        checkbox.classList.add('slot');
+
+                        const label = document.createElement('label');
+                        label.textContent = slot;
+                        label.prepend(checkbox);
+
+                        slotContainer.appendChild(label);
+                    }
+                });
+                slotContainer.style.display = 'block';
+                addSlotBtn.style.display = 'block';
+            });
+
+            // Limit to (3 - already selected) slots per day
+            slotContainer.addEventListener('change', (event) => {
+                const selectedDate = dateInput.value;
+                const alreadySelected = selectedSlotData[selectedDate] || [];
+                const maxAllowed = 3 - alreadySelected.length;
+
+                const checked = slotContainer.querySelectorAll("input[type='checkbox']:checked");
+                if (checked.length > maxAllowed) {
+                    alert(`You can only select ${maxAllowed} more slot(s) for ${selectedDate}.`);
+                    event.target.checked = false;
+                }
+            });
+
+            // Handle Add Slot button click
+            addSlotBtn.addEventListener('click', () => {
+                const date = dateInput.value;
+                const checked = slotContainer.querySelectorAll("input[type='checkbox']:checked");
+
+                if (!date || checked.length === 0) {
+                    alert('Please select a date and at least one time slot.');
+                    return;
+                }
+
+                if (!selectedSlotData[date]) {
+                    selectedSlotData[date] = [];
+                }
+
+                checked.forEach((cb) => {
+                    const time = cb.value;
+                    selectedSlotData[date].push(time); // Track it
+
+                    // Add to visible list
+                    const li = document.createElement('li');
+                    li.textContent = `${date} - ${time}`;
+                    slotList.appendChild(li);
+
+                    // Add hidden inputs for form submission
+                    const hiddenDate = document.createElement('input');
+                    hiddenDate.type = 'hidden';
+                    hiddenDate.name = 'selected_dates[]';
+                    hiddenDate.value = date;
+
+                    const hiddenTime = document.createElement('input');
+                    hiddenTime.type = 'hidden';
+                    hiddenTime.name = 'selected_times[]';
+                    hiddenTime.value = time;
+
+                    form.appendChild(hiddenDate);
+                    form.appendChild(hiddenTime);
+                });
+
+                // Clear current selection
+
+                slotContainer.style.display = 'none';
+                addSlotBtn.style.display = 'none';
+            });
+        </script>
+    </body>
+</html>

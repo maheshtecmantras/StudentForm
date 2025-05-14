@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Select Interview Slot</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                padding: 20px;
+            }
+
+            h1 {
+                color: #333;
+            }
+
+            .slot-container {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                max-width: 600px;
+            }
+
+            .slot {
+                padding: 15px 20px;
+                border: 2px solid #ccc;
+                border-radius: 10px;
+                background-color: #fff;
+                transition: all 0.2s ease;
+                cursor: pointer;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            }
+
+            .slot:hover {
+                background-color: #e6f2ff;
+                border-color: #007bff;
+            }
+
+            .selected {
+                background-color: #007bff;
+                color: white;
+                border-color: #0056b3;
+            }
+
+            button {
+                margin-top: 20px;
+                padding: 10px 20px;
+                background-color: #007bff;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 16px;
+            }
+
+            button:hover {
+                background-color: #0056b3;
+            }
+        </style>
+        <script>
+            let selectedSlotId = null;
+
+            function selectSlot(id) {
+                document.querySelectorAll('.slot').forEach((s) => s.classList.remove('selected'));
+                const selectedElement = document.getElementById(`slot-${id}`);
+                selectedElement.classList.add('selected');
+                selectedSlotId = id;
+                document.getElementById('selectedSlotInput').value = id;
+            }
+
+            function submitForm(event) {
+                if (!selectedSlotId) {
+                    alert('Please select a time slot before submitting.');
+                    event.preventDefault();
+                    return false;
+                }
+            }
+        </script>
+    </head>
+    <body>
+        <h1>Select an Interview Slot</h1>
+        <form action="/book_slot" method="POST" onsubmit="submitForm(event)">
+            <input type="hidden" name="student_id" value="{{ student_id }}" />
+            <input type="hidden" name="availability_id" id="selectedSlotInput" />
+
+            <div class="slot-container">
+                {% for slot in slots %}
+                <div class="slot" id="slot-{{ slot.id }}" onclick="selectSlot('{{ slot.id }}')">
+                    <strong>{{ slot.date }}</strong> - {{ slot.time_slot }} with {{ slot.faculty_name }}
+                </div>
+                {% endfor %}
+            </div>
+
+            <button type="submit">Confirm Slot</button>
+        </form>
+    </body>
+</html>
