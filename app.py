@@ -1,338 +1,132 @@
-from flask import Flask, render_template, request, jsonify
-import pymysql
 import os
-import uuid
-from werkzeug.utils import secure_filename
-from dotenv import load_dotenv
+import pickle
 from datetime import datetime
-import smtplib
-from email.message import EmailMessage
-from google.auth.transport.requests import Request
+import streamlit as st
+from urllib.parse import quote_plus
+import asyncio
+import pandas as pd
+from ScrapperData import search_profile  # Ensure your module is named correctly
+form_link="qwertyuio"
+st.set_page_config(page_title="LinkedIn People Scraper", layout="centered")
+st.title("🔍 LinkedIn People Scraper")
 
-# Load environment variables
-load_dotenv()
+# --- INPUTS ---
+technology = st.text_input("Enter Technology", "python")
+location = st.selectbox("Select Location", ["Ahmedabad", "Bangalore", "Remote"])
 
-app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = 'uploads'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
+# --- URL Generation ---
+def generate_people_url(tech, loc):
+    query = f"{tech} {loc}".lower()
+    encoded_query = quote_plus(query)
+    return f"https://www.linkedin.com/search/results/people/?keywords={encoded_query}&origin=FACETED_SEARCH"
 
-# MySQL config
-DB_HOST = os.getenv('DB_HOST')
-DB_USER = os.getenv('DB_USER')
-DB_PASSWORD = os.getenv('DB_PASSWORD')
-DB_NAME = os.getenv('DB_NAME')
-DB_PORT = os.getenv('DB_PORT')
+linkedin_url = generate_people_url(technology, location)
+st.markdown("#### Generated LinkedIn URL:")
+st.write(linkedin_url)
 
-# Ensure upload folder exists
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+# --- SESSION STATE SETUP ---
+if "cookies" not in st.session_state:
+    st.session_state.cookies = None
 
-# Function to get DB connection
-def get_db_connection():
-    return pymysql.connect(
-        host=DB_HOST,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        database=DB_NAME,
-        port=int(DB_PORT),
-        cursorclass=pymysql.cursors.DictCursor
-    )
+if "df" not in st.session_state:
+    st.session_state.df = None
 
-# Main student form (existing)
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    connection = get_db_connection()
-    cursor = connection.cursor()
-    
-    cursor.execute("SELECT id, name FROM technologies")
-    technologies = cursor.fetchall()
+if "filename" not in st.session_state:
+    st.session_state.filename = None
 
-    if request.method == 'POST':
-        unique_id = str(uuid.uuid4())
-        name = request.form['name']
-        email = request.form['email']
-        mobile = request.form['mobile']
-        total_exp = request.form['total_exp']
-        relevant_exp = request.form['relevant_exp']
-        location = request.form['location']
-        relocation = request.form['relocation']
-        notice_period = request.form['notice_period']
-        ctc = request.form['ctc']
-        ectc = request.form['ectc']
-        technology_id = request.form['technology']
+# --- SCRAPING FUNCTION ---
+def extract_people_data(url, filename):
+    with st.spinner("Scraping LinkedIn... Please wait."):
+        cookies = search_profile.load_cookies()
 
-        file = request.files['resume']
-        if file and file.filename != '':
-            filename = secure_filename(file.filename)
-            filename = f"{unique_id}_{filename}"
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(filepath)
+        if cookies is None:
+            st.warning("🔐 Logging in with Selenium...")
+            driver = search_profile.selenium_login()
+            driver.quit()
+            cookies = search_profile.load_cookies()
+            st.success("✅ Cookies saved.")
         else:
-            filename = None
+            st.success("✅ Using stored cookies.")
+        # Save cookies in session
+        st.session_state.cookies = cookies
 
-        cursor.execute("""
-            INSERT INTO candidates 
-            (id, name, email, mobile, total_exp, relevant_exp, location, relocation, notice_period, ctc, ectc, resume, technology_id, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '1')
-        """, (unique_id, name, email, mobile, total_exp, relevant_exp, location, relocation, notice_period, ctc, ectc, filename, technology_id))
-        
-        connection.commit()
-        cursor.close()
-        connection.close()
-        return "Form submitted successfully!"
+        # Ensure folder exists
+        os.makedirs("scraped_files", exist_ok=True)
+        file_path = os.path.join("scraped_files", filename)
 
-    cursor.close()
-    connection.close()
-    return render_template('form.html', technologies=technologies)
+        # Scrape and save Excel file
+        asyncio.run(search_profile.scrape_with_playwright(cookies, url, file_path))
+        st.success(f"🎉 Scraping completed and file saved: `{filename}`")
 
+        # Load data into DataFrame
+        try:
+            df = pd.read_excel(file_path)
+            st.session_state.df = df
+            st.session_state.filename = filename
+        except Exception as e:
+            st.error(f"❌ Failed to read Excel file: {e}")
 
-# ---------------------- NEW ROUTE -----------------------
+# --- START SCRAPING ---
+if st.button("🚀 Start Extracting Data"):
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f"linkedin_people_{timestamp}.xlsx"
+    extract_people_data(linkedin_url, filename)
 
-# Route to show interviewer availability form
-@app.route('/availability_form', methods=['GET'])
-def availability_form():
-    connection = get_db_connection()
-    cursor = connection.cursor()
-    student_id = request.args.get('student_id')
-    print(student_id)
-    cursor.execute("SELECT id, faculty_name FROM technologies")
-    technologies = cursor.fetchall()
-    cursor.close()
-    connection.close()
-    return render_template('availability_form.html', technologies=technologies,student_id=student_id)
+# --- SHOW RESULTS ---
+if st.session_state.df is not None:
+    st.info(f"📄 Showing extracted data from `{st.session_state.filename}`")
 
+    for index, row in st.session_state.df.iterrows():
+        with st.container():
+            cols = st.columns([3, 2, 2])
+            with cols[0]:
+                st.markdown(f"### {row['Name']}")
+                st.markdown(f"[🔗 LinkedIn Profile]({row['Profile URL']})")
+                st.markdown(f"📍 {row['Location']}")
+                st.markdown(f"💼 {row['Description']}")
+                st.markdown(f"🧠 Skills: {row['Skills']}")
+                st.markdown(f"🟢 Open to Work: {row['Open to Work']}")
 
-# Route to handle availability submission
-@app.route('/submit_availability', methods=['POST'])
-def submit_availability():   
+            with cols[1]:
+                image_url = row.get("Image URL")
+                if image_url and image_url.startswith("http"):
+                    try:
+                        st.image(image_url, width=100)
+                    except Exception as e:
+                        st.warning("⚠️ Could not load image.")
+                else:
+                    st.warning("❌ No valid image URL.")
 
-    tech_id = request.form['faculty_id']
-    dates = request.form.getlist('selected_dates[]')  # list of selected dates
-    times = request.form.getlist('selected_times[]')  # list of corresponding time slots
-    student_id = str(request.form.get('student_id'))
-    if len(dates) != len(times):
-        return "Mismatch between selected dates and time slots.", 400
+            with cols[2]:
+                if st.button(f"💬 Send Message to {row['Name']}", key=f"btn_{index}"):
+                    message = f"""
+                Hi {row['Name']},
+                Hope you're doing well!
 
-    connection = get_db_connection()
-    cursor = connection.cursor()
+                We are currently hiring for the position of {technology} Developer at our Ahmedabad location.
 
-    for date, time_slot in zip(dates, times):
-        unique_id = str(uuid.uuid4())
-        cursor.execute("""
-            INSERT INTO availability (id, technology_id, student_id, date, time_slot)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (unique_id, tech_id,student_id,date, time_slot))
+                If you're interested, please take a moment to fill out the form below and submit your details. Our team will get in touch with you shortly.
 
-    connection.commit()
-    cursor.close()
-    connection.close()  
-    return "Availability submitted!"
+                👉 {form_link}
 
-@app.route('/get_availability', methods=['GET'])
-def get_availability():
-    student_id = request.args.get('student_id')
+                Looking forward to connecting with you!
+                    """
+                    asyncio.run(search_profile.send_connection_request(
+                        st.session_state.cookies,
+                        row['Profile URL'],
+                        message
+                    ))
+                    st.success(f"✅ Connection request sent to {row['Name']}")
 
-    if not student_id:
-        return "Missing student_id", 400
-
-    connection = get_db_connection()
-    cursor = connection.cursor()
-
-    # Fetch all availability slots for this student
-    cursor.execute("""
-        SELECT a.id, a.date, a.time_slot, t.faculty_name
-        FROM availability a
-        JOIN technologies t ON a.technology_id = t.id
-        WHERE a.student_id = %s
-    """, (student_id,))
-    slots = cursor.fetchall()
-
-    cursor.close()
-    connection.close()
-
-    return render_template('availablity_selection.html', slots=slots, student_id=student_id)
-
-
-@app.route('/book_slot', methods=['POST'])
-def book_slot():
-    student_id = request.form.get('student_id')
-    availability_id = request.form.get('availability_id')
-
-    if not student_id or not availability_id:
-        return "Missing student ID or availability ID", 400
-
-    connection = get_db_connection()
-    cursor = connection.cursor()
-
-    # Step 1: Get technology_id, student email, and resume filename
-    cursor.execute("SELECT technology_id, email,name,resume FROM candidates WHERE id = %s", (student_id,))
-    tech_row = cursor.fetchone()
-    if not tech_row:
-        cursor.close()
-        connection.close()
-        return "Invalid student ID", 400
-
-    technology_id = tech_row['technology_id']
-    student_email = tech_row['email']
-    resume_filename = tech_row['resume']
-    student_name=tech_row['name']
-    resume_path = os.path.join("uploads/", resume_filename) if resume_filename else None
-    print(resume_path)
-    # Step 2: Get slot date and time
-    cursor.execute("SELECT date, time_slot FROM availability WHERE id = %s", (availability_id,))
-    slot = cursor.fetchone()
-    if not slot:
-        cursor.close()
-        connection.close()
-        return "Invalid availability_id submitted", 400
-
-    date = slot['date']  # YYYY-MM-DD
-    time_slot = slot['time_slot']  # e.g., '13:00 - 14:00'
-
-    # Step 3: Parse start and end times
-    try:
-        start_str, end_str = [t.strip() for t in time_slot.split(" - ")]
-        start_datetime = datetime.strptime(f"{date} {start_str}", "%Y-%m-%d %H:%M")
-        end_datetime = datetime.strptime(f"{date} {end_str}", "%Y-%m-%d %H:%M")
-    except Exception as e:
-        cursor.close()
-        connection.close()
-        return f"Error parsing time slot: {e}", 400
-
-    # Step 4: Get faculty email using technology_id
-    cursor.execute("SELECT faculty_email,name FROM technologies WHERE id = %s", (technology_id,))
-    faculty_row = cursor.fetchone()
-    if not faculty_row:
-        cursor.close()
-        connection.close()
-        return "Faculty email not found", 500
-
-    faculty_email = faculty_row['faculty_email']
-    technology=faculty_row['name']
-    # Step 5: Create Google Meet event
-    try:
-        meet_link = create_google_meet_event(
-            summary=f"Interview Invite - {date} Time : {time_slot}  : {technology} Intern - {student_name} ",
-            start_time=start_datetime,
-            end_time=end_datetime,
-            student_email=student_email,
-            faculty_email=faculty_email
-        )
-    except Exception as e:
-        cursor.close()
-        connection.close()
-        return f"Error creating Google Meet: {e}", 500
-
-    # Step 6: Store booking
-    booking_id = str(uuid.uuid4())
-    cursor.execute("""
-        INSERT INTO bookings (id, availability_id, technology_id, candidate_id, meet_link)
-        VALUES (%s, %s, %s, %s, %s)
-    """, (booking_id, availability_id, technology_id, student_id, meet_link))
-    connection.commit()
-
-    cursor.close()
-    connection.close()
-
-    # # Step 7: Send email to student and faculty
-    # subject = "Interview Slot Confirmed"
-    # body = f"""
-    #             Dear Candidate and Interviewer,
-
-    #             The interview slot has been successfully booked.
-
-    #             📅 Date: {date}
-    #             ⏰ Time: {time_slot}
-    #             🔗 Google Meet Link: {meet_link}
-
-    #             The candidate's resume is attached with this email.
-
-    #             Regards,  
-    #             TecMantras
-    #             """
-    # send_meeting_email([student_email, faculty_email], subject, body, attachment_path=resume_path)
-
-    return f"Slot confirmed! Google Meet link: {meet_link}"
-# ---------------------- END ROUTE -----------------------
-
-# def send_meeting_email(to_emails, subject, body, attachment_path=None):
-#     msg = EmailMessage()
-#     msg["Subject"] = subject
-#     msg["From"] = os.getenv("EMAIL_ADDRESS")
-#     msg["To"] = ", ".join(to_emails)
-#     msg.set_content(body)
-
-#     if attachment_path:
-#         try:
-#             with open(attachment_path, 'rb') as attachment_file:
-#                 msg.add_attachment(attachment_file.read(), maintype='application', subtype='octet-stream', filename=os.path.basename(attachment_path))
-#         except Exception as e:
-#             print(f"Error attaching file: {e}")
-#             return False
-
-#     # Sending email using SMTP and starttls() on port 587
-#     try:
-#         with smtplib.SMTP(os.getenv("EMAIL_HOST"), int(os.getenv("EMAIL_PORT"))) as server:
-#             server.starttls()  # Upgrade the connection to a secure encrypted SSL/TLS connection
-#             server.login(os.getenv("EMAIL_ADDRESS"), os.getenv("EMAIL_PASSWORD"))
-#             server.send_message(msg)
-#         return True
-#     except Exception as e:
-#         print(f"Error sending email: {e}")
-#         return False
-
-def create_google_meet_event(summary, start_time, end_time, student_email, faculty_email):
-    from google.oauth2.credentials import Credentials
-    from googleapiclient.discovery import build
-    import os
-
-    SCOPES = ['https://www.googleapis.com/auth/calendar.events']
-    creds = None
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    print(student_email,faculty_email)
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                'credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
-
-    service = build('calendar', 'v3', credentials=creds)
-    event = {
-        'summary': summary,
-        'start': {
-            'dateTime': start_time.isoformat(),
-            'timeZone': 'Asia/Kolkata',
-        },
-        'end': {
-            'dateTime': end_time.isoformat(),
-            'timeZone': 'Asia/Kolkata',
-        },
-        'attendees': [
-            {'email': student_email},
-            {'email': faculty_email},  # Add faculty as attendee
-        ],
-        'conferenceData': {
-            'createRequest': {
-                'requestId': f"meet-{uuid.uuid4()}",
-                'conferenceSolutionKey': {'type': 'hangoutsMeet'},
-            }
-        }
-    }
-
-    event = service.events().insert(
-        calendarId='primary',
-        body=event,
-        conferenceDataVersion=1,
-        sendUpdates='all'
-    ).execute()
-
-    return event.get('hangoutLink')
-
-
-if __name__ == '__main__':
-    app.run(debug=True)
+    # --- Download Button ---
+    file_path = os.path.join("scraped_files", st.session_state.filename)
+    if os.path.exists(file_path):
+        with open(file_path, "rb") as file:
+            st.download_button(
+                label="📥 Download Excel File",
+                data=file,
+                file_name=st.session_state.filename,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+    else:
+        st.error("❌ File not found. Scraping may have failed.")

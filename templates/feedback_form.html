@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Candidate Review</title>
+        <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet" />
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+                font-family: 'Poppins', sans-serif;
+                background: linear-gradient(135deg, #e3f2fd, #ffffff);
+                height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .container {
+                background: #fff;
+                padding: 30px 40px;
+                border-radius: 12px;
+                box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+                width: 100%;
+                max-width: 500px;
+            }
+
+            h2 {
+                text-align: center;
+                color: #333;
+                margin-bottom: 25px;
+            }
+
+            label {
+                font-weight: 600;
+                color: #555;
+            }
+
+            textarea {
+                width: 100%;
+                padding: 12px;
+                border: 1px solid #ccc;
+                border-radius: 8px;
+                font-size: 14px;
+                resize: vertical;
+                font-family: 'Poppins', sans-serif;
+            }
+
+            input[type='submit'] {
+                margin-top: 20px;
+                width: 100%;
+                padding: 12px;
+                border: none;
+                border-radius: 8px;
+                background-color: #1976d2;
+                color: white;
+                font-size: 16px;
+                cursor: pointer;
+                transition: background 0.3s ease;
+            }
+
+            input[type='submit']:hover {
+                background-color: #0d47a1;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h2>Candidate Review Form</h2>
+            <form method="POST">
+                <label for="review">Review:</label><br />
+                <textarea name="review" rows="5" required></textarea><br />
+                <input type="submit" value="Submit Review" />
+            </form>
+        </div>
+    </body>
+</html>
