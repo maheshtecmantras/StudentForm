@@ -102,13 +102,9 @@ if st.session_state.df is not None:
                     message = f"""
                 Hi {row['Name']},
                 Hope you're doing well!
-
                 We are currently hiring for the position of {technology} Developer at our Ahmedabad location.
-
                 If you're interested, please take a moment to fill out the form below and submit your details. Our team will get in touch with you shortly.
-
                 👉 {form_link}
-
                 Looking forward to connecting with you!
                     """
                     asyncio.run(search_profile.send_connection_request(

@@ -22,6 +22,9 @@ DB_PASSWORD = os.getenv('DB_PASSWORD')
 DB_NAME = os.getenv('DB_NAME')
 DB_PORT = os.getenv('DB_PORT')
 
+#Base URL
+BASE_URL = os.getenv("BASE_URL")
+
 # Resume upload directory
 RESUME_DIR = "uploads/"
 
@@ -50,27 +53,28 @@ def send_mail_to_faculty():
             msg['Subject'] = f"[Action Required] Interview Slot Selection for {student['student_name']}"
             msg['From'] = EMAIL_USER
             msg['To'] = student['interviewer_email']
-            availability_form_url = f"http://localhost:5000/availability_form?student_id={student['id']}"
+            availability_form_url = f"{BASE_URL}/availability_form?student_id={student['id']}"
+
 
             msg.set_content(f"""
-Dear {student['interviewer_name']},
+                Dear {student['interviewer_name']},
 
-A new candidate has been added under the technology: {student['tech_name']}.
+                A new candidate has been added under the technology: {student['tech_name']}.
 
-Please review their resume and provide your availability using this form:
-🔗 {availability_form_url}
+                Please review their resume and provide your availability using this form:
+                🔗 {availability_form_url}
 
-Instructions:
-- Select up to 3 time slots per day
-- Choose slots for the next 5 working days (excluding today)
+                Instructions:
+                - Select up to 3 time slots per day
+                - Choose slots for the next 5 working days (excluding today)
 
-Student Details:
-Name: {student['student_name']}
-Email: {student['student_email']}
+                Student Details:
+                Name: {student['student_name']}
+                Email: {student['student_email']}
 
-Thank you,
-TecMantras
-""")
+                Thank you,
+                TecMantras
+                """)
 
             resume_path = os.path.join(RESUME_DIR, student['resume_path'])
             if resume_path and os.path.exists(resume_path):
@@ -113,8 +117,7 @@ def send_mail_to_student():
             msg['From'] = EMAIL_USER
             msg['To'] = student['email']
 
-            slot_selection_url = f"http://localhost:5000/get_availability?student_id={student_id}"
-
+            slot_selection_url = f"{BASE_URL}/get_availability?student_id={student_id}"
             msg.set_content(f"""
                 Dear {student['name']},
 

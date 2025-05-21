@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hiring Form</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
     <style>
@@ -13,7 +14,9 @@
         }
 
         .form-container {
+            width: 100%;
             max-width: 700px;
+            min-width: 320px;
             margin: auto;
             background: #ffffff;
             padding: 40px;
@@ -76,7 +79,7 @@
             <img src="{{ url_for('static', filename='logo.png') }}" alt="Company Logo">
         </div>
         <h2>Candidate Application Form</h2>
-        <form method="POST" enctype="multipart/form-data" onsubmit="return validateForm()">
+        <form method="POST" enctype="multipart/form-data" onsubmit="return validateForm()" novalidate>
             <label>Name:</label>
             <input type="text" name="name" id="name" minlength="3" required />
 
@@ -93,14 +96,16 @@
             <input type="number" name="relevant_exp" step="1" required />
 
             <label>Current Location:</label>
-            <input type="text" name="location" required />
+            <input type="text" name="location" id="location" required />
 
-            <label>Are you ready to relocate to Ahmedabad?</label>
-            <select name="relocation" required>
-                <option value="">Select</option>
-                <option value="Yes">Yes</option>
-                <option value="No">No</option>
-            </select>
+            <div class="relocation-wrapper">
+                <label>Are you ready to relocate to Ahmedabad?</label>
+                <select name="relocation" required>
+                    <option value="">Select</option>
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                </select>
+            </div>
 
             <label>Technology:</label>
             <select name="technology" required>
@@ -109,6 +114,7 @@
                 <option value="{{ tech.id }}">{{ tech.name }}</option>
                 {% endfor %}
             </select>
+
             <label>Notice Period (in days):</label>
             <input type="number" name="notice_period" required />
 
@@ -130,11 +136,23 @@
             const name = document.getElementById('name').value.trim();
             const email = document.getElementById('email').value.trim();
             const mobile = document.getElementById('mobile').value.trim();
+            const totalExp = parseFloat(document.querySelector('input[name="total_exp"]').value);
+            const relevantExp = parseFloat(document.querySelector('input[name="relevant_exp"]').value);
+            const ctc = document.querySelector('input[name="ctc"]').value.trim();
+            const ectc = document.querySelector('input[name="ectc"]').value.trim();
 
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            const nameRegex = /^[A-Za-z\s]+$/;
+            const mobileRegex = /^\d{10}$/;
+            const salaryRegex = /^\d{1,2}$/;
 
-            if (name.length < 3) {
-                alert('Name should be at least 3 characters long.');
+            if (name.length == 0) {
+                alert('Name is required');
+                return false;
+            }
+
+            if (!nameRegex.test(name)) {
+                alert('Name should only contain letters and spaces.');
                 return false;
             }
 
@@ -143,13 +161,55 @@
                 return false;
             }
 
-            if (!/^\d{10}$/.test(mobile)) {
-                alert('Mobile number must be exactly 10 digits.');
+            if (!mobileRegex.test(mobile)) {
+                alert('Mobile number must be exactly 10 digits and contain only numbers.');
+                return false;
+            }
+
+            if (totalExp > 20 || relevantExp > 20) {
+                alert('Experience cannot exceed 20 years.');
+                return false;
+            }
+
+            if (!salaryRegex.test(ctc) || !salaryRegex.test(ectc)) {
+                alert('CTC and ECTC should be 1 or 2 digit numbers (max 99).');
+                return false;
+            }
+
+            if (parseInt(ectc) < parseInt(ctc)) {
+                alert('Expected CTC cannot be less than Current CTC.');
+                return false;
+            }
+
+
+
+            if (relevantExp > totalExp) {
+                alert('Relevant experience cannot be greater than total experience.');
                 return false;
             }
 
             return true;
         }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            const locationInput = document.getElementById('location');
+            const relocationWrapper = document.querySelector('.relocation-wrapper');
+            const relocationSelect = document.querySelector('select[name="relocation"]');
+
+            function checkLocation() {
+                const location = locationInput.value.trim().toLowerCase();
+                if (location === "ahmedabad") {
+                    relocationWrapper.style.display = "none";
+                    relocationSelect.value = "Yes";
+                } else {
+                    relocationWrapper.style.display = "block";
+                    relocationSelect.value = "";
+                }
+            }
+
+            locationInput.addEventListener("input", checkLocation);
+            checkLocation(); // Initial check
+        });
     </script>
 </body>
 
