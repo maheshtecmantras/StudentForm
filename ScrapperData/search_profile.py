@@ -163,7 +163,7 @@ async def scrape_with_playwright(cookies, url, filename , retry=False):
     data = []
     async with async_playwright() as p:
         try:
-            browser = await p.chromium.launch(headless=False)
+            browser = await p.chromium.launch(headless=True)
             context = await browser.new_context()
 
             # Set cookies
@@ -384,7 +384,7 @@ async def send_connection_request(cookies,profile_url: str, message: str,retry=F
     page=None
     async with async_playwright() as p:
         try:
-            browser = await p.chromium.launch(headless=False)
+            browser = await p.chromium.launch(headless=True)
             context = await browser.new_context()
             print('after context')
             # Set cookies

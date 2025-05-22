@@ -93,25 +93,22 @@ if st.session_state.df is not None:
                     try:
                         st.image(image_url, width=100)
                     except Exception as e:
-                        st.warning("⚠️ Could not load image.")
+                        st.warning("Could not load image.")
                 else:
                     st.warning("❌ No valid image URL.")
 
             with cols[2]:
                 if st.button(f"💬 Send Message to {row['Name']}", key=f"btn_{index}"):
-                    message = f"""
-                Hi {row['Name']},
-                Hope you're doing well!
-                We are currently hiring for the position of {technology} Developer at our Ahmedabad location.
-                If you're interested, please take a moment to fill out the form below and submit your details. Our team will get in touch with you shortly.
-                👉 {form_link}
-                Looking forward to connecting with you!
-                    """
+                    message = f"""Hi {row['Name']}, hope you're doing well!
+                    We're hiring a {technology} Developer in Ahmedabad. If you're interested, please fill out this form 👉 {form_link}. Our team will reach out soon!
+                    Looking forward to connecting!"""
                     asyncio.run(search_profile.send_connection_request(
                         st.session_state.cookies,
                         row['Profile URL'],
                         message
                     ))
+
+
                     st.success(f"✅ Connection request sent to {row['Name']}")
 
     # --- Download Button ---

@@ -116,7 +116,8 @@
             </select>
 
             <label>Notice Period (in days):</label>
-            <input type="number" name="notice_period" required />
+            <input type="number" name="notice_period" id="notice_period" max="99" pattern="\d{1,2}" required />
+
 
             <label>Current CTC (in LPA):</label>
             <input type="text" name="ctc" required />
@@ -125,7 +126,7 @@
             <input type="text" name="ectc" required />
 
             <label>Upload Resume (PDF/DOC):</label>
-            <input type="file" name="resume" accept=".pdf,.doc,.docx" required />
+            <input type="file" name="resume" id="resume" accept=".pdf,.doc,.docx" required />
 
             <button type="submit">Submit Application</button>
         </form>
@@ -140,7 +141,8 @@
             const relevantExp = parseFloat(document.querySelector('input[name="relevant_exp"]').value);
             const ctc = document.querySelector('input[name="ctc"]').value.trim();
             const ectc = document.querySelector('input[name="ectc"]').value.trim();
-
+            const noticePeriod = parseInt(document.getElementById("notice_period").value);
+            const resumeFile = document.getElementById("resume").files[0];
             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
             const nameRegex = /^[A-Za-z\s]+$/;
             const mobileRegex = /^\d{10}$/;
@@ -171,6 +173,16 @@
                 return false;
             }
 
+            if (relevantExp > totalExp) {
+                alert('Relevant experience cannot be greater than total experience.');
+                return false;
+            }
+
+            if (isNaN(noticePeriod) || noticePeriod > 99 || noticePeriod < 0) {
+                alert('Notice period must be a number between 0 and 99.');
+                return false;
+            }
+
             if (!salaryRegex.test(ctc) || !salaryRegex.test(ectc)) {
                 alert('CTC and ECTC should be 1 or 2 digit numbers (max 99).');
                 return false;
@@ -180,14 +192,10 @@
                 alert('Expected CTC cannot be less than Current CTC.');
                 return false;
             }
-
-
-
-            if (relevantExp > totalExp) {
-                alert('Relevant experience cannot be greater than total experience.');
+            if (!resumeFile) {
+                alert("Please upload your resume.");
                 return false;
             }
-
             return true;
         }
 

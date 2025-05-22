@@ -9,7 +9,9 @@ import smtplib
 from email.message import EmailMessage
 from google.auth.transport.requests import Request
 from llm_util import evaluate_candidate
-from send_mail import send_mail_to_hr
+from send_mail import send_mail_to_hr,send_feedback_form_to_faculty
+
+
 # Load environment variables
 load_dotenv()
 
@@ -73,7 +75,7 @@ def index():
         cursor.execute("""
             INSERT INTO candidates 
             (id, name, email, mobile, total_exp, relevant_exp, location, relocation, notice_period, ctc, ectc, resume, technology_id, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '1')
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '0')
         """, (unique_id, name, email, mobile, total_exp, relevant_exp, location, relocation, notice_period, ctc, ectc, filename, technology_id))
         
         connection.commit()
@@ -253,6 +255,9 @@ def book_slot():
     #             """
     # send_meeting_email([student_email, faculty_email], subject, body, attachment_path=resume_path)
 
+
+    # Send feedback form email to the faculty
+    send_feedback_form_to_faculty(faculty_email, student_id)
     return f"Slot confirmed! Google Meet link: {meet_link}"
 
 

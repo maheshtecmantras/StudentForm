@@ -68,7 +68,7 @@ def send_mail_to_faculty():
                 - Select up to 3 time slots per day
                 - Choose slots for the next 5 working days (excluding today)
 
-                Student Details:
+                Candidate Details:
                 Name: {student['student_name']}
                 Email: {student['student_email']}
 
@@ -145,6 +145,56 @@ def send_mail_to_student():
                 conn.commit()
             except Exception as e:
                 print(f"❌ Failed to send email to student {student['email']}: {e}")
+
+def send_feedback_form_to_faculty(faculty_email, student_id):
+    # Connect to DB and get student name
+    conn = pymysql.connect(
+        host=DB_HOST,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database=DB_NAME,
+        port=int(DB_PORT),
+        cursorclass=pymysql.cursors.DictCursor
+    )
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT name FROM candidates WHERE id = %s", (student_id,))
+            student = cursor.fetchone()
+
+            if not student:
+                print(f"❌ Student with ID {student_id} not found.")
+                return
+
+            msg = EmailMessage()
+            msg['Subject'] = f"Feedback Form for {student['name']}"
+            msg['From'] = EMAIL_USER
+            msg['To'] = faculty_email
+
+            feedback_form_url = f"{BASE_URL}/feedback_form?student_id={student_id}"
+            msg.set_content(f"""
+                Dear Interviewer,
+
+                Please provide your feedback for {student['name']} using the link below:
+                🔗 {feedback_form_url}
+
+                Thank you,
+                TecMantras
+            """)
+
+            try:
+                with smtplib.SMTP(EMAIL_HOST, EMAIL_PORT) as smtp:
+                    smtp.starttls()
+                    smtp.login(EMAIL_USER, EMAIL_PASS)
+                    smtp.send_message(msg)
+                    print(f"✅ Feedback form sent to: {faculty_email}")
+            except Exception as e:
+                print(f"❌ Failed to send email: {e}")
+    except Exception as e:
+        print(f"❌ Failed to send email: {e}")
+    finally:
+        conn.close()
+    
 
 def send_mail_to_hr(candidate_id):
 
