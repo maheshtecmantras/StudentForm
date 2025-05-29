@@ -81,11 +81,11 @@
         <form action="/book_slot" method="POST" onsubmit="submitForm(event)">
             <input type="hidden" name="student_id" value="{{ student_id }}" />
             <input type="hidden" name="availability_id" id="selectedSlotInput" />
-
+            <input type="hidden" name="round" value="{{ round_number }}" />
             <div class="slot-container">
                 {% for slot in slots %}
                 <div class="slot" id="slot-{{ slot.id }}" onclick="selectSlot('{{ slot.id }}')">
-                    <strong>{{ slot.date }}</strong> - {{ slot.time_slot }} with {{ slot.faculty_name }}
+                    <strong>{{ slot.date }}</strong> - {{ slot.time_slot }} with {{ slot.interviewer_name }}
                 </div>
                 {% endfor %}
             </div>

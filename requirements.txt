@@ -18,3 +18,4 @@ pandas
 playwright 
 dotenv
 selenium
+gunicorn

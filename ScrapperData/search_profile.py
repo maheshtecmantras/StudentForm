@@ -384,7 +384,7 @@ async def send_connection_request(cookies,profile_url: str, message: str,retry=F
     page=None
     async with async_playwright() as p:
         try:
-            browser = await p.chromium.launch(headless=True)
+            browser = await p.chromium.launch(headless=False)
             context = await browser.new_context()
             print('after context')
             # Set cookies
@@ -419,13 +419,7 @@ async def send_connection_request(cookies,profile_url: str, message: str,retry=F
                 else:
                     print("❌ Retry already attempted. Aborting.")
                     return "Login failed after retry."
-            
-
-
-
-
-            # page = await context.new_page()
-            # await page.goto(profile_url, timeout=90000)
+    
             # Scroll to bottom to reveal buttons
                 
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
